@@ -6,6 +6,9 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Tuple
 
+import xml.etree.ElementTree as ET
+from rmdocs.template import runme
+
 import cairosvg
 from pypdf import PdfReader, PageObject, PdfWriter, Transformation
 from pypdf.annotations import FreeText
@@ -48,6 +51,18 @@ def export_page(page: RMPage, compiler_param: CompilerParameters = CompilerParam
     with page.path.open('rb') as f:
         tree = read_tree(f)
         svg, x_shift, y_shift, w, h = compiler.compile_tree(tree, None)
+
+    if page.template == None or page.template == "Blank":
+        print("blank")
+    else:
+        scale = compiler_param.screen.scale
+        ET.register_namespace("", "http://www.w3.org/2000/svg")
+        root = ET.fromstring(svg)
+        temp = runme(page.template,w/scale,h/scale)
+
+        temp.set("transform", f"scale({scale}) translate({x_shift/scale} {y_shift/scale})")
+        root.append(temp)  # adds <g> as a child of <svg>
+        svg = ET.tostring(root, encoding="unicode")
 
     # convert the svg to a PDF without writing to the disk
     # use dpi=72 so that the PDF has the same resolution as the svg
